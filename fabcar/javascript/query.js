@@ -8,46 +8,121 @@ const { Gateway, Wallets } = require('fabric-network');
 const path = require('path');
 const fs = require('fs');
 
+async function connect() {
+  const ccpPath = path.resolve(__dirname, '..', '..', 'test-network', 'organizations', 'peerOrganizations', 'org1.example.com', 'connection-org1.json');
+  const ccp = JSON.parse(fs.readFileSync(ccpPath, 'utf8'));
 
-async function main() {
-    try {
-        // load the network configuration
-        const ccpPath = path.resolve(__dirname, '..', '..', 'test-network', 'organizations', 'peerOrganizations', 'org1.example.com', 'connection-org1.json');
-        const ccp = JSON.parse(fs.readFileSync(ccpPath, 'utf8'));
+  const walletPath = path.join(process.cwd(), 'wallet');
+  const wallet = await Wallets.newFileSystemWallet(walletPath);
 
-        // Create a new file system based wallet for managing identities.
-        const walletPath = path.join(process.cwd(), 'wallet');
-        const wallet = await Wallets.newFileSystemWallet(walletPath);
-        console.log(`Wallet path: ${walletPath}`);
+  const identity = await wallet.get('appUser');
+  if (!identity) {
+    throw new Error('An identity for the user "appUser" does not exist in the wallet');
+  }
 
-        // Check to see if we've already enrolled the user.
-        const identity = await wallet.get('appUser');
-        if (!identity) {
-            console.log('An identity for the user "appUser" does not exist in the wallet');
-            console.log('Run the registerUser.js application before retrying');
-            return;
-        }
+  const gateway = new Gateway();
+  await gateway.connect(ccp, { wallet, identity: 'appUser', discovery: { enabled: true, asLocalhost: true } });
+  const network = await gateway.getNetwork('mychannel');
+  const contract = network.getContract('fabcar');
 
-        // Create a new gateway for connecting to our peer node.
-        const gateway = new Gateway();
-        await gateway.connect(ccp, { wallet, identity: 'appUser', discovery: { enabled: true, asLocalhost: true } });
-
-        // Get the network (channel) our contract is deployed to.
-        const network = await gateway.getNetwork('mychannel');
-
-        // Get the contract from the network.
-        const contract = network.getContract('fabcar');
-
-        // Evaluate the specified transaction.
-        // queryCar transaction - requires 1 argument, ex: ('queryCar', 'CAR4')
-        // queryAllCars transaction - requires no arguments, ex: ('queryAllCars')
-        const result = await contract.evaluateTransaction('queryAllCars');
-        console.log(`Transaction has been evaluated, result is: ${result.toString()}`);
-
-    } catch (error) {
-        console.error(`Failed to evaluate transaction: ${error}`);
-        process.exit(1);
-    }
+  return { gateway, contract };
 }
 
-main();
+async function getPendingTokenRequests() {
+  const { gateway, contract } = await connect();
+  const result = await contract.evaluateTransaction('GetPendingTokenRequests');
+  gateway.disconnect();
+  return JSON.parse(result.toString());
+}
+
+async function getPendingMintRequests() {
+  const { gateway, contract } = await connect();
+  const result = await contract.evaluateTransaction('GetPendingMintRequests');
+  gateway.disconnect();
+  return JSON.parse(result.toString());
+}
+
+async function getWalletInfo(networkAddress, passwordHash) {
+  const { gateway, contract } = await connect();
+  const result = await contract.evaluateTransaction('GetWalletInfo', networkAddress, passwordHash);
+  gateway.disconnect();
+  return JSON.parse(result.toString());
+}
+
+async function viewAllTokens() {
+  const { gateway, contract } = await connect();
+  const result = await contract.evaluateTransaction('ViewAllTokens');
+  gateway.disconnect();
+  return JSON.parse(result.toString());
+}
+
+async function viewPendingCustomerRegistrations(tokenID, ownerNetworkAddress) {
+  const { gateway, contract } = await connect();
+  const result = await contract.evaluateTransaction('ViewPendingCustomerRegistrations', tokenID, ownerNetworkAddress);
+  gateway.disconnect();
+  return JSON.parse(result.toString());
+}
+
+async function viewPendingCustomerMintRequests(tokenID, ownerNetworkAddress) {
+  const { gateway, contract } = await connect();
+  const result = await contract.evaluateTransaction('ViewPendingCustomerMintRequests', tokenID, ownerNetworkAddress);
+  gateway.disconnect();
+  return JSON.parse(result.toString());
+}
+
+async function viewCustomerWallet(networkAddress, tokenID, passwordHash) {
+  const { gateway, contract } = await connect();
+  const result = await contract.evaluateTransaction('ViewCustomerWallet', networkAddress, tokenID, passwordHash);
+  gateway.disconnect();
+  return JSON.parse(result.toString());
+}
+
+async function viewTransferRequestsForOwner(ownerID) {
+  const { gateway, contract } = await connect();
+  const result = await contract.evaluateTransaction('ViewTransferRequestsForOwner', ownerID);
+  gateway.disconnect();
+  return JSON.parse(result.toString());
+}
+
+async function viewTransferRequestsForReceiver(receiverID) {
+  const { gateway, contract } = await connect();
+  const result = await contract.evaluateTransaction('ViewTransferRequestsForReceiver', receiverID);
+  gateway.disconnect();
+  return JSON.parse(result.toString());
+}
+
+async function getParticipantTransferHistory(participantTransferID) {
+  const { gateway, contract } = await connect();
+  const result = await contract.evaluateTransaction('GetParticipantTransferHistory', participantTransferID);
+  gateway.disconnect();
+  return JSON.parse(result.toString());
+}
+
+async function getTokenTransferHistory(tokenID) {
+  const { gateway, contract } = await connect();
+  const result = await contract.evaluateTransaction('GetTokenTransferHistory', tokenID);
+  gateway.disconnect();
+  return JSON.parse(result.toString());
+}
+
+async function getTokenParticipantsAndTransactions(tokenID, callerTransferID) {
+  const { gateway, contract } = await connect();
+  const result = await contract.evaluateTransaction('GetTokenParticipantsAndTransactions', tokenID, callerTransferID);
+  gateway.disconnect();
+  return JSON.parse(result.toString());
+}
+
+module.exports = {
+  getPendingTokenRequests,
+  getPendingMintRequests,
+  getWalletInfo,
+  viewAllTokens,
+  viewPendingCustomerRegistrations,
+  viewPendingCustomerMintRequests,
+  viewCustomerWallet,
+  viewTransferRequestsForOwner,
+  viewTransferRequestsForReceiver,
+  getParticipantTransferHistory,
+  getTokenTransferHistory,
+  getTokenParticipantsAndTransactions,
+};
