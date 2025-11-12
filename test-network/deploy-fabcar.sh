@@ -84,3 +84,4 @@ peer lifecycle chaincode querycommitted --channelID mychannel --name fabcar \
   --cafile ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
 echo "Invoking chaincode to initialize ledger..."
+
